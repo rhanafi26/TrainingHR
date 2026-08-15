@@ -21,7 +21,6 @@ const DashboardUser = () => {
   useEffect(() => {
     const handleResume = (data) => {
       console.log('📢 Ujian di-resume:', data);
-      // Refresh dashboard untuk update status
       fetchDashboard();
     };
 
@@ -59,13 +58,19 @@ const DashboardUser = () => {
     return statusMap[status] || statusMap['belum_mulai'];
   };
 
+  // Download Materi - OPSI 1 (dengan token di URL)
+  const downloadMateri = (materiId, judul) => {
+    const url = `http://localhost:5001/api/user/materi/${materiId}/download?token=${token}`;
+    window.open(url, '_blank');
+  };
+
   // Render tombol aksi berdasarkan status
   const renderActionButton = (bidang) => {
     if (bidang.status === 'selesai') {
       return (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           <span className="text-sm text-gray-500">
-            Skor: {bidang.skor} | Percobaan {bidang.percobaan_ke}/3
+            Skor: {bidang.skor} | {bidang.percobaan_ke}/3
           </span>
           {bidang.sisa_percobaan > 0 && (
             <Link
@@ -130,7 +135,7 @@ const DashboardUser = () => {
             📚 Dashboard Training
           </h2>
           <Link to="/riwayat" className="neu-button text-sm px-4 py-2">
-            📊 Riwayat Ujian
+            Riwayat Ujian
           </Link>
         </div>
 
@@ -173,32 +178,30 @@ const DashboardUser = () => {
                   {/* Info */}
                   <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-4">
                     <span>⏱️ {bidang.durasi_ujian} menit</span>
-                    <span>📝 {bidang.total_soal} soal</span>
-                    <span>📄 {bidang.total_materi} materi</span>
+                    <span>📝 {bidang.total_soal || 0} soal</span>
+                    <span>📄 {bidang.total_materi || 0} materi</span>
                   </div>
 
                   {/* Materi */}
-                  {bidang.materi.length > 0 && (
+                  {bidang.materi && bidang.materi.length > 0 && (
                     <div className="mb-4">
                       <p className="text-xs font-medium text-gray-500 mb-1">📄 Materi:</p>
                       <div className="flex flex-wrap gap-2">
                         {bidang.materi.map((m) => (
-                          <a
+                          <button
                             key={m.id}
-                            href={`http://localhost:5001/api/user/materi/${m.id}/download`}
-                            className="text-xs bg-primary-100 text-primary-700 px-3 py-1 rounded-full hover:bg-primary-300 transition-colors"
-                            target="_blank"
-                            rel="noopener noreferrer"
+                            onClick={() => downloadMateri(m.id, m.judul)}
+                            className="text-xs bg-primary-100 text-primary-700 px-3 py-1 rounded-full hover:bg-primary-300 transition-colors cursor-pointer"
                           >
                             {m.judul}
-                          </a>
+                          </button>
                         ))}
                       </div>
                     </div>
                   )}
 
                   {/* Action Button */}
-                  <div className="flex justify-between items-center mt-2 pt-3 border-t border-gray-100">
+                  <div className="flex flex-wrap justify-between items-center mt-2 pt-3 border-t border-gray-100 gap-2">
                     <span className="text-xs text-gray-400">
                       {bidang.status === 'selesai' 
                         ? `Percobaan ${bidang.percobaan_ke}/3` 
