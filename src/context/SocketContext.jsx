@@ -11,19 +11,21 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
 
+  // env variable
+  const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
+
   useEffect(() => {
     if (!user) return;
 
-    // Connect ke socket server
-    socketRef.current = io('http://localhost:5001', {
+    // Connect ke socket server dengan URL yang benar
+    socketRef.current = io(SOCKET_URL, {
       transports: ['polling', 'websocket'],
       path: '/socket.io/',
     });
 
     socketRef.current.on('connect', () => {
-      console.log('✅ Socket connected');
+      console.log('✅ Socket connected to:', SOCKET_URL);
       setIsConnected(true);
-      // Register user
       socketRef.current.emit('register-user', user.id);
     });
 
@@ -35,6 +37,36 @@ export const SocketProvider = ({ children }) => {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
+      }
+    };
+  }, [user]);
+
+  const emit = (event, data) => {
+    if (socketRef.current) {
+      socketRef.current.emit(event, data);
+    }
+  };
+
+  const on = (event, callback) => {
+    if (socketRef.current) {
+      socketRef.current.on(event, callback);
+    }
+  };
+
+  const off = (event) => {
+    if (socketRef.current) {
+      socketRef.current.off(event);
+    }
+  };
+
+  const value = { socket: socketRef.current, isConnected, emit, on, off };
+
+  return (
+    <SocketContext.Provider value={value}>
+      {children}
+    </SocketContext.Provider>
+  );
+};        socketRef.current.disconnect();
       }
     };
   }, [user]);
