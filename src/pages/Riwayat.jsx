@@ -3,6 +3,9 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 
+// 🔥 Import API_URL dari config
+import { API_URL } from '../config';
+
 const Riwayat = () => {
   const [riwayat, setRiwayat] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,8 +18,9 @@ const Riwayat = () => {
 
   const fetchRiwayat = async () => {
     try {
+      // 🔥 Pakai API_URL
       const response = await axios.get(
-        'http://localhost:5001/api/user/riwayat',
+        `${API_URL}/user/riwayat`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setRiwayat(response.data.data);
