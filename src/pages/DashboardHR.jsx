@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import Navbar from '../components/Navbar';
 
+// 🔥 Import API_URL dari config
+import { API_URL } from '../config';
+
 const DashboardHR = () => {
   const [bidangList, setBidangList] = useState([]);
   const [hasilList, setHasilList] = useState([]);
@@ -12,10 +15,11 @@ const DashboardHR = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState(''); // 'bidang', 'materi', 'soal'
+  const [modalType, setModalType] = useState('');
   const [selectedBidang, setSelectedBidang] = useState(null);
   const [notifications, setNotifications] = useState([]);
-  const { token } = useAuth();
+  const [ujianDiPause, setUjianDiPause] = useState([]);
+  const { token, user } = useAuth();
   const { emit, on, off } = useSocket();
 
   // Form states
@@ -35,22 +39,41 @@ const DashboardHR = () => {
   // Fetch data
   useEffect(() => {
     fetchData();
+    fetchUjianDiPause();
   }, [filterBidang]);
 
   // Socket listener untuk notifikasi pause
   useEffect(() => {
     const handleNotifikasiPause = (data) => {
+      console.log('🔔 Notifikasi pause diterima:', data);
+      
       setNotifications((prev) => [
         {
           id: Date.now(),
           ...data,
-          timestamp: new Date()
+          timestamp: new Date(),
+          resolved: false
         },
         ...prev
       ]);
+
+      setUjianDiPause((prev) => {
+        const exists = prev.some(u => u.ujianId === data.ujianId);
+        if (exists) return prev;
+        return [...prev, {
+          ujianId: data.ujianId,
+          userId: data.userId,
+          bidangId: data.bidangId,
+          timestamp: new Date()
+        }];
+      });
+
+      fetchUjianDiPause();
     };
 
     const handleNotifikasiResume = (data) => {
+      console.log('🔔 Notifikasi resume diterima:', data);
+      
       setNotifications((prev) =>
         prev.map((n) =>
           n.ujianId === data.ujianId
@@ -58,6 +81,12 @@ const DashboardHR = () => {
             : n
         )
       );
+
+      setUjianDiPause((prev) =>
+        prev.filter(u => u.ujianId !== data.ujianId)
+      );
+
+      fetchUjianDiPause();
     };
 
     on('notifikasi-pause', handleNotifikasiPause);
@@ -73,21 +102,19 @@ const DashboardHR = () => {
     try {
       setLoading(true);
       
-      // Fetch bidang
-      const bidangRes = await axios.get('http://localhost:5001/api/bidang', {
+      // 🔥 Pakai API_URL dari config
+      const bidangRes = await axios.get(`${API_URL}/bidang`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBidangList(bidangRes.data.data);
 
-      // Fetch hasil dengan filter
       const hasilRes = await axios.get(
-        `http://localhost:5001/api/hasil${filterBidang ? `?bidangId=${filterBidang}` : ''}`,
+        `${API_URL}/hasil${filterBidang ? `?bidangId=${filterBidang}` : ''}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setHasilList(hasilRes.data.data);
 
-      // Fetch bidang options untuk filter
-      const optionsRes = await axios.get('http://localhost:5001/api/hasil/bidang-list', {
+      const optionsRes = await axios.get(`${API_URL}/hasil/bidang-list`, {
         headers: { Authorization: `Bearer ${token}` } 
       });
       setBidangOptions(optionsRes.data.data);
@@ -101,12 +128,57 @@ const DashboardHR = () => {
     }
   };
 
-  // Create Bidang
+  const fetchUjianDiPause = async () => {
+    try {
+      // 🔥 Pakai API_URL
+      const response = await axios.get(
+        `${API_URL}/ujian/di-pause`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setUjianDiPause(response.data.data || []);
+    } catch (err) {
+      console.error('Fetch ujian di-pause error:', err);
+    }
+  };
+
+  const handleResumeUjian = async (ujianId, userId) => {
+    try {
+      console.log(`▶️ Admin meresume ujian ${ujianId} untuk user ${userId}`);
+      
+      // 🔥 Pakai API_URL
+      await axios.put(
+        `${API_URL}/ujian/${ujianId}/resume`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      emit('ujian-resume', { ujianId, userId });
+      
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.ujianId === ujianId
+            ? { ...n, resolved: true, resolvedAt: new Date() }
+            : n
+        )
+      );
+
+      setUjianDiPause((prev) =>
+        prev.filter(u => u.ujianId !== ujianId)
+      );
+
+      alert('✅ Ujian berhasil dilanjutkan!');
+    } catch (err) {
+      console.error('❌ Gagal resume ujian:', err);
+      alert('❌ Gagal melanjutkan ujian: ' + (err.response?.data?.message || err.message));
+    }
+  };
+
   const handleCreateBidang = async (e) => {
     e.preventDefault();
     try {
+      // 🔥 Pakai API_URL
       await axios.post(
-        'http://localhost:5001/api/bidang',
+        `${API_URL}/bidang`,
         formBidang,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -119,7 +191,6 @@ const DashboardHR = () => {
     }
   };
 
-  // Upload Materi
   const handleUploadMateri = async (e) => {
     e.preventDefault();
     if (!selectedBidang) return;
@@ -129,8 +200,9 @@ const DashboardHR = () => {
     formData.append('judul', formMateri.judul);
 
     try {
+      // 🔥 Pakai API_URL
       await axios.post(
-        `http://localhost:5001/api/bidang/${selectedBidang.id}/materi`,
+        `${API_URL}/bidang/${selectedBidang.id}/materi`,
         formData,
         {
           headers: {
@@ -148,7 +220,6 @@ const DashboardHR = () => {
     }
   };
 
-  // Upload Soal
   const handleUploadSoal = async (e) => {
     e.preventDefault();
     if (!selectedBidang) return;
@@ -157,8 +228,9 @@ const DashboardHR = () => {
     formData.append('soal', formSoal.file);
 
     try {
+      // 🔥 Pakai API_URL
       await axios.post(
-        `http://localhost:5001/api/bidang/${selectedBidang.id}/soal`,
+        `${API_URL}/bidang/${selectedBidang.id}/soal`,
         formData,
         {
           headers: {
@@ -176,37 +248,10 @@ const DashboardHR = () => {
     }
   };
 
-  // Handle Resume Ujian
-  const handleResumeUjian = async (ujianId, userId) => {
-    try {
-      await axios.put(
-        `http://localhost:5001/api/ujian/${ujianId}/resume`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Kirim event via socket
-      emit('ujian-resume', { ujianId, userId });
-      
-      // Update notifikasi
-      setNotifications((prev) =>
-        prev.map((n) =>
-          n.ujianId === ujianId
-            ? { ...n, resolved: true, resolvedAt: new Date() }
-            : n
-        )
-      );
-      
-      alert('✅ Ujian dilanjutkan!');
-    } catch (err) {
-      alert('❌ Gagal resume ujian: ' + (err.response?.data?.message || err.message));
-    }
-  };
-
-  // Export Excel
   const handleExport = async () => {
     try {
-      const url = `http://localhost:5001/api/hasil/export${filterBidang ? `?bidangId=${filterBidang}` : ''}`;
+      // 🔥 Pakai API_URL
+      const url = `${API_URL}/hasil/export${filterBidang ? `?bidangId=${filterBidang}` : ''}`;
       const response = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
         responseType: 'blob'
@@ -245,22 +290,29 @@ const DashboardHR = () => {
       <Navbar />
       
       <div className="max-w-7xl mx-auto p-4 md:p-6">
-        {/* Notifikasi */}
-        {notifications.filter(n => !n.resolved).length > 0 && (
+        {/* 🔥 SECTION: UJIAN DI-PAUSE */}
+        {ujianDiPause.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-500 mb-2">🔔 Notifikasi ({notifications.filter(n => !n.resolved).length})</h3>
+            <h3 className="text-sm font-semibold text-yellow-600 mb-2 flex items-center gap-2">
+              <span className="text-xl">⏸️</span> 
+              Ujian Di-Pause ({ujianDiPause.length})
+            </h3>
             <div className="space-y-2">
-              {notifications.filter(n => !n.resolved).map((notif) => (
-                <div key={notif.id} className="glass-card p-4 flex justify-between items-center">
+              {ujianDiPause.map((ujian) => (
+                <div key={ujian.ujianId} className="glass-card p-4 flex justify-between items-center border-l-4 border-yellow-400">
                   <div>
-                    <p className="text-sm font-medium text-yellow-700">⚠️ User {notif.userId} mempause ujian</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      ⚠️ User <span className="font-semibold">{ujian.user?.full_name || ujian.userId}</span> 
+                      {' '}sedang mempause ujian
+                    </p>
                     <p className="text-xs text-gray-400">
-                      {new Date(notif.timestamp).toLocaleTimeString('id-ID')}
+                      Bidang: {ujian.bidang?.nama || ujian.bidangId} • 
+                      Di-pause: {new Date(ujian.timestamp || ujian.created_at).toLocaleTimeString('id-ID')}
                     </p>
                   </div>
                   <button
-                    onClick={() => handleResumeUjian(notif.ujianId, notif.userId)}
-                    className="btn-primary text-sm px-4 py-2"
+                    onClick={() => handleResumeUjian(ujian.ujianId, ujian.userId)}
+                    className="btn-primary text-sm px-4 py-2 bg-green-600 hover:bg-green-700"
                   >
                     ▶️ Resume
                   </button>
@@ -272,7 +324,7 @@ const DashboardHR = () => {
 
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-primary-700">Dashboard HR</h2>
+          <h2 className="text-2xl font-bold text-primary-700">📊 Dashboard HR</h2>
           <button
             onClick={() => openModal('bidang')}
             className="btn-primary"
@@ -333,7 +385,7 @@ const DashboardHR = () => {
                 onClick={handleExport}
                 className="neu-button text-sm px-4 py-2"
               >
-                Export Excel
+                📥 Export Excel
               </button>
             </div>
           </div>
