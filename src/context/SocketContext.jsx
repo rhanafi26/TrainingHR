@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { SOCKET_URL } from '../config';
 
 const SocketContext = createContext();
 
@@ -11,13 +12,9 @@ export const SocketProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
 
-  // env variable
-  const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:5001";
-
   useEffect(() => {
     if (!user) return;
 
-    // Connect ke socket server dengan URL yang benar
     socketRef.current = io(SOCKET_URL, {
       transports: ['polling', 'websocket'],
       path: '/socket.io/',
@@ -37,36 +34,6 @@ export const SocketProvider = ({ children }) => {
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
-      }
-    };
-  }, [user]);
-
-  const emit = (event, data) => {
-    if (socketRef.current) {
-      socketRef.current.emit(event, data);
-    }
-  };
-
-  const on = (event, callback) => {
-    if (socketRef.current) {
-      socketRef.current.on(event, callback);
-    }
-  };
-
-  const off = (event) => {
-    if (socketRef.current) {
-      socketRef.current.off(event);
-    }
-  };
-
-  const value = { socket: socketRef.current, isConnected, emit, on, off };
-
-  return (
-    <SocketContext.Provider value={value}>
-      {children}
-    </SocketContext.Provider>
-  );
-};        socketRef.current.disconnect();
       }
     };
   }, [user]);
