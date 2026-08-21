@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import Navbar from '../components/Navbar';
 
+// 🔥 Import API_URL dari config
+import { API_URL } from '../config';
+
 const Ujian = () => {
   const { bidangId } = useParams();
   const navigate = useNavigate();
@@ -31,43 +34,38 @@ const Ujian = () => {
       try {
         setLoading(true);
         
-        // Cek status ujian
+        // 🔥 Pakai API_URL
         const statusRes = await axios.get(
-          `http://localhost:5001/api/ujian/${bidangId}/status`,
+          `${API_URL}/ujian/${bidangId}/status`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
         const data = statusRes.data.data;
         
-        // Jika sudah selesai, redirect ke dashboard
         if (data.ujian && data.ujian.status === 'selesai') {
           navigate('/dashboard');
           return;
         }
 
-        // Jika belum ada ujian atau sudah selesai, mulai baru
         if (!data.ujian || data.ujian.status === 'selesai') {
           if (data.sisa_percobaan <= 0) {
             setError('Batas percobaan sudah habis');
             setLoading(false);
             return;
           }
-          // Mulai ujian baru
           await startUjian();
         } else {
-          // Lanjutkan ujian yang ada
           const ujianData = data.ujian;
           setUjianId(ujianData.id);
           setStatus(ujianData.status);
           
-          // Ambil soal
+          // 🔥 Pakai API_URL
           const soalRes = await axios.get(
-            `http://localhost:5001/api/bidang/${bidangId}/soal`,
+            `${API_URL}/bidang/${bidangId}/soal`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           setSoal(soalRes.data.data);
           
-          // Hitung waktu tersisa (dari backend)
           const durasi = ujianData.bidang.durasi_ujian;
           const mulai = new Date(ujianData.waktu_mulai);
           const elapsed = (Date.now() - mulai.getTime()) / 1000 / 60;
@@ -90,8 +88,9 @@ const Ujian = () => {
   // Start ujian baru
   const startUjian = async () => {
     try {
+      // 🔥 Pakai API_URL
       const response = await axios.post(
-        `http://localhost:5001/api/ujian/${bidangId}/mulai`,
+        `${API_URL}/ujian/${bidangId}/mulai`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -123,7 +122,7 @@ const Ujian = () => {
         }
         return prev - 1;
       });
-    }, 60000); // Update setiap 1 menit
+    }, 60000);
 
     return () => clearInterval(timerRef.current);
   }, [status, loading]);
@@ -132,7 +131,6 @@ const Ujian = () => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && status === 'sedang_berlangsung' && ujianId) {
-        // User pindah tab → pause
         handlePause();
       }
     };
@@ -150,7 +148,6 @@ const Ujian = () => {
       if (data.ujianId === ujianId) {
         setStatus('sedang_berlangsung');
         setError('');
-        // Lanjutkan timer
       }
     };
 
@@ -166,8 +163,9 @@ const Ujian = () => {
     if (!ujianId) return;
     
     try {
+      // 🔥 Pakai API_URL
       await axios.put(
-        `http://localhost:5001/api/ujian/${ujianId}/pause`,
+        `${API_URL}/ujian/${ujianId}/pause`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -175,7 +173,6 @@ const Ujian = () => {
       setStatus('di_pause');
       clearInterval(timerRef.current);
       
-      // Kirim event ke server via socket
       emit('ujian-pause', {
         ujianId,
         userId: user.id,
@@ -192,7 +189,6 @@ const Ujian = () => {
   const handleSubmit = async () => {
     if (submitting) return;
     
-    // Konfirmasi
     const totalDiisi = Object.keys(jawaban).length;
     const totalSoal = soal.length;
     
@@ -212,8 +208,9 @@ const Ujian = () => {
         jawaban: jawab
       }));
 
+      // 🔥 Pakai API_URL
       const response = await axios.post(
-        `http://localhost:5001/api/ujian/${ujianId}/submit`,
+        `${API_URL}/ujian/${ujianId}/submit`,
         { jawaban: jawabanList },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -247,7 +244,6 @@ const Ujian = () => {
     return `${mins.toString().padStart(2, '0')}`;
   };
 
-  // Progress
   const progress = soal.length > 0 ? (Object.keys(jawaban).length / soal.length) * 100 : 0;
 
   if (loading) {
@@ -310,7 +306,6 @@ const Ujian = () => {
       <Navbar />
       
       <div className="max-w-4xl mx-auto p-4 md:p-6">
-        {/* Header Ujian */}
         <div className="glass-card p-4 mb-4">
           <div className="flex justify-between items-center">
             <div>
@@ -324,7 +319,6 @@ const Ujian = () => {
             </div>
           </div>
           
-          {/* Progress Bar */}
           <div className="mt-3 w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-primary-500 rounded-full h-2 transition-all duration-300"
@@ -337,7 +331,6 @@ const Ujian = () => {
           </div>
         </div>
 
-        {/* Soal */}
         {currentSoal && (
           <div className="glass-card p-6">
             <div className="mb-6">
@@ -347,7 +340,6 @@ const Ujian = () => {
               </h3>
             </div>
 
-            {/* Pilihan Jawaban */}
             <div className="space-y-3">
               {pilihan.map((p) => {
                 const label = p.toUpperCase();
@@ -379,7 +371,6 @@ const Ujian = () => {
               })}
             </div>
 
-            {/* Navigasi */}
             <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-100">
               <button
                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
