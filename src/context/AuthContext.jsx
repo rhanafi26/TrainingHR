@@ -10,7 +10,12 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
-  const API_URL = 'http://localhost:5001/api';
+  //environment variable
+  const API_URL = import.meta.env.VITE_API_URL 
+    ? `${import.meta.env.VITE_API_URL}/api` 
+    : 'http://localhost:5001/api';
+
+  console.log('🔗 API_URL:', API_URL); // Untuk debugging
 
   // Set axios default header
   if (token) {
@@ -30,6 +35,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user };
     } catch (error) {
+      console.error('Login error:', error);
       return { 
         success: false, 
         message: error.response?.data?.message || 'Login gagal' 
@@ -52,6 +58,7 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true, user };
     } catch (error) {
+      console.error('Register error:', error);
       return { 
         success: false, 
         message: error.response?.data?.message || 'Registrasi gagal' 
