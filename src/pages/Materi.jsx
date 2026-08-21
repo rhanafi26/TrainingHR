@@ -4,6 +4,9 @@ import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 
+// 🔥 Import API_URL dari config
+import { API_URL } from '../config';
+
 const Materi = () => {
   const { bidangId } = useParams();
   const [bidang, setBidang] = useState(null);
@@ -17,8 +20,9 @@ const Materi = () => {
 
   const fetchMateri = async () => {
     try {
+      // 🔥 Pakai API_URL
       const response = await axios.get(
-        `http://localhost:5001/api/user/bidang/${bidangId}`,
+        `${API_URL}/user/bidang/${bidangId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setBidang(response.data.data);
@@ -28,6 +32,12 @@ const Materi = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 🔥 Download handler
+  const handleDownload = (materiId, judul) => {
+    const url = `${API_URL}/user/materi/${materiId}/download?token=${token}`;
+    window.open(url, '_blank');
   };
 
   if (loading) {
@@ -77,14 +87,12 @@ const Materi = () => {
                     Diupload: {new Date(m.uploaded_at).toLocaleDateString('id-ID')}
                   </p>
                 </div>
-                <a
-                  href={`http://localhost:5001/api/user/materi/${m.id}/download`}
+                <button
+                  onClick={() => handleDownload(m.id, m.judul)}
                   className="btn-primary text-sm px-4 py-2"
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
                   📥 Download PDF
-                </a>
+                </button>
               </div>
             ))}
           </div>
