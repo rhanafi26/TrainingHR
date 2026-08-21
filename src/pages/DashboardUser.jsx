@@ -5,6 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import { useSocket } from '../context/SocketContext';
 
+// 🔥 Import API_URL dari config
+import { API_URL } from '../config';
+
 const DashboardUser = () => {
   const [bidangList, setBidangList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +37,8 @@ const DashboardUser = () => {
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:5001/api/user/dashboard', {
+      // 🔥 Pakai API_URL dari config
+      const response = await axios.get(`${API_URL}/user/dashboard`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBidangList(response.data.data);
@@ -58,9 +62,9 @@ const DashboardUser = () => {
     return statusMap[status] || statusMap['belum_mulai'];
   };
 
-  // Download Materi - OPSI 1 (dengan token di URL)
+  // 🔥 Download Materi - pakai API_URL
   const downloadMateri = (materiId, judul) => {
-    const url = `http://localhost:5001/api/user/materi/${materiId}/download?token=${token}`;
+    const url = `${API_URL}/user/materi/${materiId}/download?token=${token}`;
     window.open(url, '_blank');
   };
 
